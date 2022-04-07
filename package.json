@@ -1,0 +1,22 @@
+{
+  "name": "webrtc-fileshare",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "heroku-postbuild": "cd client && npm install && npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.3",
+    "nodemon": "^2.0.15",
+    "simple-peer": "^9.11.0",
+    "socket.io": "^4.0.0",
+    "uuid": "^8.3.2"
+  }
+}

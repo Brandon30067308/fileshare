@@ -1,0 +1,175 @@
+@use "sass:string";
+@import "config";
+
+.flex {
+  display: flex;
+}
+
+/* flex directions */
+$flexdirections: ("row", "column", "row-reverse", "column-reverse");
+
+@each $d in $flexdirections {
+  .flex-#{$d} {
+    flex-direction: #{$d};
+  }
+}
+
+/* flex vertical & horizontal alignments */
+$flexalignments: ("center", "flex-end", "flex-start", "space-between");
+
+@each $a in $flexalignments {
+  .justify-#{$a} {
+    justify-content: #{$a};
+  }
+  .align-#{$a} {
+    align-items: #{$a};
+  }
+}
+
+/* text alignments */
+$textalignments: ("center", "left", "right");
+
+@each $a in $textalignments {
+  .text-#{$a} {
+    text-align: #{$a};
+  }
+}
+
+/* font-sizes */
+$fontSizes: (
+  "xs": $text-xs,
+  "sm": $text-sm,
+  "md": $text-md,
+  "lg": $text-lg,
+  "xl": $text-xl,
+);
+@each $name, $value in $fontSizes {
+  .text-#{$name} {
+    font-size: $value;
+
+    @media screen and (max-width: $md) {
+      font-size: $value * 0.9;
+    }
+
+    @media screen and (max-width: $sm) {
+      font-size: $value * 0.85;
+    }
+  }
+}
+
+@function getNonZeroDigit($digit) {
+  @if ($digit == "0") {
+    @return "";
+  }
+  @return "-" + $digit;
+}
+
+/* spacings */
+.m-auto {
+  margin: auto;
+}
+.mx-auto {
+  margin-left: 0 auto;
+}
+
+$spaceamounts: ("0", "1", "2", "3", "4", "5");
+
+@each $a in $spaceamounts {
+  $subspaceamounts: ("0", "25", "5", "75");
+  @each $sa in $subspaceamounts {
+    /* margins */
+    .m-#{$a}#{getNonZeroDigit($sa)} {
+      margin: #{$a + "." + $sa}rem;
+    }
+    .mx-#{$a}#{getNonZeroDigit($sa)} {
+      margin-left: #{$a + "." + $sa}rem;
+      margin-right: #{$a + "." + $sa}rem;
+    }
+    .my-#{$a}#{getNonZeroDigit($sa)} {
+      margin-top: #{$a + "." + $sa}rem;
+      margin-bottom: #{$a + "." + $sa}rem;
+    }
+    .ml-#{$a}#{getNonZeroDigit($sa)} {
+      margin-left: #{$a + "." + $sa}rem;
+    }
+    .mr-#{$a}#{getNonZeroDigit($sa)} {
+      margin-right: #{$a + "." + $sa}rem;
+    }
+    .mt-#{$a}#{getNonZeroDigit($sa)} {
+      margin-top: #{$a + "." + $sa}rem;
+    }
+    .mb-#{$a}#{getNonZeroDigit($sa)} {
+      margin-bottom: #{$a + "." + $sa}rem;
+    }
+
+    /* paddings */
+    .p-#{$a}#{getNonZeroDigit($sa)} {
+      padding: #{$a + "." + $sa}rem;
+    }
+    .px-#{$a}#{getNonZeroDigit($sa)} {
+      padding-left: #{$a + "." + $sa}rem;
+      padding-right: #{$a + "." + $sa}rem;
+    }
+    .py-#{$a}#{getNonZeroDigit($sa)} {
+      padding-top: #{$a + "." + $sa}rem;
+      padding-bottom: #{$a + "." + $sa}rem;
+    }
+    .pl-#{$a}#{getNonZeroDigit($sa)} {
+      padding-left: #{$a + "." + $sa}rem;
+    }
+    .pr-#{$a}#{getNonZeroDigit($sa)} {
+      padding-right: #{$a + "." + $sa}rem;
+    }
+    .pt-#{$a}#{getNonZeroDigit($sa)} {
+      padding-top: #{$a + "." + $sa}rem;
+    }
+    .pb-#{$a}#{getNonZeroDigit($sa)} {
+      padding-bottom: #{$a + "." + $sa}rem;
+    }
+  }
+}
+
+/* width & height */
+.w-full {
+  width: 100%;
+}
+.w-fit {
+  width: fit-content;
+}
+.w-screen {
+  width: 100vw;
+}
+.h-full {
+  height: 100%;
+}
+.h-fit {
+  height: fit-content;
+}
+.h-screen {
+  height: 100vh;
+}
+
+/* colors */
+$colors: (
+  "primary": $primary,
+  "secondary": $secondary,
+  "dark": $dark,
+  "error": $error,
+  "white": $white,
+  "muted": $muted,
+  "mutedAlt": $mutedAlt,
+  "primaryLight": $primaryLight,
+  "success": $success,
+);
+
+@each $name, $color in $colors {
+  .bg-#{$name} {
+    background-color: #{$color};
+  }
+  .text-#{$name} {
+    color: #{$color};
+  }
+  .fill-#{$name} {
+    fill: #{$color};
+  }
+}
