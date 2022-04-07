@@ -2,13 +2,14 @@ import { faDownload, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Dispatch, FC } from "react";
 import Modal from "react-modal";
+import Spinner from "../shared/Spinner";
 
 interface FileDetailsProps {
   name: string;
   size: string | null;
   open: boolean;
   setOpen: Dispatch<boolean>;
-  handleDownload: () => void;
+  downloadUrl: string | null;
 }
 
 const FileDetails: FC<FileDetailsProps> = ({
@@ -16,7 +17,7 @@ const FileDetails: FC<FileDetailsProps> = ({
   size,
   open,
   setOpen,
-  handleDownload,
+  downloadUrl,
 }) => {
   return (
     <Modal
@@ -52,16 +53,27 @@ const FileDetails: FC<FileDetailsProps> = ({
           {/* size in megabyte */}
           {size + "mb"}
         </p>
+        {/* download file button */}
         <button
-          className="bg-mutedAlt text-muted text-md py-1-5 px-0-75"
-          onClick={() => {
-            handleDownload();
-            setOpen(false);
-          }}
+          className="download-file flex bg-mutedAlt text-muted text-md"
+          disabled={downloadUrl ? false : true}
         >
-          {/* download file button */}
-          Download file{" "}
-          <FontAwesomeIcon icon={faDownload} className="ml-0-75" />
+          <a
+            href={downloadUrl ?? ''}
+            download={name}
+            onClick={() => {
+              setOpen(false);
+            }}
+            className="flex w-full h-full align-center justify-center"
+          >
+            {downloadUrl ?
+              'Download File' :
+              <Spinner
+                full={false}
+                lg={false}
+              />}
+            <FontAwesomeIcon icon={faDownload} className="ml-0-75" />
+          </a>
         </button>
       </div>
     </Modal>

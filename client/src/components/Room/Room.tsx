@@ -2,6 +2,7 @@ import { FC, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import Modal from 'react-modal';
 import { io, Socket } from "socket.io-client";
 import Peer, { SignalData } from "simple-peer";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
@@ -28,6 +29,9 @@ const Room: FC = () => {
   const [connected, setConnected] = useState<boolean>(false);
   const [sending, setSending] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [downloadUrl, setdownloadUrl] = useState<null | string>(null);
   // refs
   const socketRef = useRef<Socket<DefaultEventsMap, DefaultEventsMap>>();
   const peersRef = useRef<{ peer: Peer.Instance; id: string }[]>([]);
@@ -69,24 +73,31 @@ const Room: FC = () => {
           setLoading(false);
           socketRef.current = io("/", {
             reconnection: true,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: 5
           });
+
           socketRef.current.on("connect", () => {
             socketRef.current?.emit("join-room", { roomID });
           });
 
           socketRef.current.on("disconnect", () => {
-            peersRef.current = [];
-            navigate("/");
+            cleanUp();
+            console.log('disconnected...');
+          });
+
+          socketRef.current.io.on('reconnect', () => {
+            console.log('reconnected...');
+            setReconnecting(false);
           });
 
           socketRef.current.io.on('reconnect_failed', () => {
             console.log('reconnect failed...');
-            socketRef.current?.disconnect();
+            navigate("/");
           });
 
-          socketRef.current.io.on('reconnect', () => {
+          socketRef.current.io.on('reconnect_attempt', () => {
             console.log('reconnecting...');
+            setReconnecting(true);
           });
 
           socketRef.current.on("total-users", (totalUsers: number) => {
@@ -136,13 +147,11 @@ const Room: FC = () => {
               type: "message",
               message: (
                 <p className="text-md text-success">
-                  User{" "}
-                  {peersRef.current.findIndex(({ id }) => id === userId) + 1}{" "}
-                  recieved file
+                  User recieved file...
                 </p>
               ),
               persist: true,
-              timeout: 10000,
+              timeout: 10000
             });
           });
         } else {
@@ -167,11 +176,22 @@ const Room: FC = () => {
       });
 
     return () => {
+      socketRef.current?.disconnect();
       // clean up
-      peersRef.current = [];
-      socketRef?.current?.disconnect();
+      cleanUp();
     };
   }, []);
+
+  const cleanUp = () => {
+    setConnected(false);
+    setSending(false);
+
+    peersRef.current.forEach(({ peer }) => peer.destroy());
+    peersRef.current = [];
+    sendingRef.current = {};
+    recievingRef.current = false;
+    removeMessage(recievingMessageRef.current);
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.files && setFile(e.target.files[0]);
@@ -229,6 +249,17 @@ const Room: FC = () => {
           persist: true,
           timeout: 10000,
         });
+
+        setdownloadUrl(null);
+        arrayBufferWorker.postMessage("download"); // send back generated buffer from worker
+        arrayBufferWorker.addEventListener(
+          "message",
+          (e) => {
+            const url = URL.createObjectURL(e.data);
+            setdownloadUrl(url);
+          },
+          { once: true }
+        );
       } else {
         arrayBufferWorker.postMessage(data); // send chunks to worker to convert to array buffer
       }
@@ -386,6 +417,7 @@ const Room: FC = () => {
         });
       }
       if (sendingRef.current[id]) sendingRef.current[id] = false;
+      peersRef.current.length === 0 && setConnected(false);
     }
   };
 
@@ -395,11 +427,13 @@ const Room: FC = () => {
       if (file) {
         setSending(true);
 
+        setConverting(true);
         // blob -> blob chunks
         blobChunkWorker.postMessage(file);
         blobChunkWorker.addEventListener(
           "message",
           async (e: MessageEvent) => {
+            setConverting(false);
             // blob chunks
             const fileChunks = e.data;
 
@@ -502,30 +536,31 @@ const Room: FC = () => {
                   </span>
                 </div>
                 <button
-                  className="flex align-center bg-mutedAlt px-1 py-1-5 text-dark text-md"
+                  className="flex align-center justify-center bg-mutedAlt px-1 py-1-5 text-dark text-md"
                   style={{
                     backgroundColor: sending ? "#dededee6" : "#dedede",
                     height: "63px",
-                    width: "158px",
+                    width: "160px",
                   }}
                   onClick={sendFile}
                   disabled={sending}
                 >
-                  {sending ? (
-                    <span className="w-full flex align-center justify-center text-muted text-md">
-                      <span className="mr-0-5">sending</span>
-                      <Spinner full={false} />
-                    </span>
-                  ) : (
-                    <>
-                      Share file
-                      <FontAwesomeIcon
-                        icon={faShareNodes}
-                        size="lg"
-                        className="ml-0-75"
-                      />
-                    </>
-                  )}
+                  {sending ?
+                    converting ? '...' : (
+                      <span className="w-full flex align-center justify-center text-muted text-md">
+                        <span className="mr-0-5">sending</span>
+                        <Spinner full={false} />
+                      </span>
+                    ) : (
+                      <>
+                        Share file
+                        <FontAwesomeIcon
+                          icon={faShareNodes}
+                          size="lg"
+                          className="ml-0-75"
+                        />
+                      </>
+                    )}
                 </button>
               </div>
             ) : (
@@ -570,7 +605,7 @@ const Room: FC = () => {
           })}
           {recievedFile && <FileDownload setDownloadModal={setModalOpen} />}
           <FileDetails
-            handleDownload={handleDownload}
+            downloadUrl={downloadUrl}
             name={fileNameRef.current}
             size={fileSize}
             open={modalOpen}
@@ -582,6 +617,19 @@ const Room: FC = () => {
         <div className="h-full w-full flex align-center justify-center">
           {error && <p className="text-md text-white">{error}</p>}
           {loading && <Spinner fill="#ffffff" lg={true} />}
+          {reconnecting && (
+            <Modal
+              className="reconnecting text-md text-white"
+              shouldCloseOnOverlayClick={false}
+              isOpen={reconnecting}
+              ariaHideApp={false}
+            >
+              <span className="text-md text-white flex align-center justify-center">
+                <span className="mr-0-5">Reconnecting</span>
+                <Spinner full={false} fill="#ffffff" />
+              </span>
+            </Modal>
+          )}
         </div>
       }
     </>

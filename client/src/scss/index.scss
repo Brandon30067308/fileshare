@@ -34,31 +34,52 @@ input[type="text"] {
 /* react modal */
 .ReactModal__Overlay {
   background-color: rgba(100, 100, 100, 0.45) !important;
+
+  .ReactModal__Content {
+    background-color: $secondary !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    border-radius: 1rem !important;
+    outline: none !important;
+    width: 420px !important;
+    height: 250px !important;
+    position: absolute;
+    top: calc((100% - 250px) / 2) !important;
+    left: calc((100% - 420px) / 2) !important;
+    padding: 1rem 0.85rem !important;
+
+    &.reconnecting {
+      justify-content: center !important;
+      background-color: transparent !important;
+      border: none !important;
+    }
+
+    button {
+      box-shadow: 0 0px 0px 5px rgb(0 0 0 / 5%) !important;
+    }
+
+    button.close {
+      box-shadow: none !important;
+    }
+
+    @media screen and (max-width: $sm) {
+      width: 94vw !important;
+      left: 3vw !important;
+      padding: 0.85rem 0.7rem !important;
+    }
+  }
 }
 
-.ReactModal__Content {
-  background-color: $secondary !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  border-radius: 1rem !important;
-  width: 420px !important;
-  height: 250px !important;
-  top: calc((100% - 250px) / 2) !important;
-  left: calc((100% - 420px) / 2) !important;
-  padding: 1rem 0.85rem !important;
+.Spinner {
+  animation: spin 0.85s linear infinite;
 
-  button {
-    box-shadow: 0 0px 0px 5px rgb(0 0 0 / 5%) !important;
-  }
-
-  button.close {
-    box-shadow: none !important;
-  }
-
-  @media screen and (max-width: $sm) {
-    width: 94vw !important;
-    left: 3vw !important;
-    padding: 0.85rem 0.7rem !important;
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 }

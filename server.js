@@ -68,11 +68,6 @@ io.on("connection", (socket) => {
     console.log("connect error: ", err.message);
   });
 
-  socket.on("disconnect-socket", (socketId) => {
-    const socket = sockets.find(({ id }) => id === socketId);
-    socket && socket.disconnect();
-  });
-
   socket.on("disconnect", () => {
     console.log("disconnecting: ", socket.id);
     sockets.filter(({ id }) => id !== socket.id);
