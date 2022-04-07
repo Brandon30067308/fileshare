@@ -67,7 +67,10 @@ const Room: FC = () => {
         ) {
           // valid roomID & available space in room
           setLoading(false);
-          socketRef.current = io("/");
+          socketRef.current = io("/", {
+            reconnection: true,
+            reconnectionAttempts: 5,
+          });
           socketRef.current.on("connect", () => {
             socketRef.current?.emit("join-room", { roomID });
           });
@@ -75,6 +78,15 @@ const Room: FC = () => {
           socketRef.current.on("disconnect", () => {
             peersRef.current = [];
             navigate("/");
+          });
+
+          socketRef.current.io.on('reconnect_failed', () => {
+            console.log('reconnect failed...');
+            socketRef.current?.disconnect();
+          });
+
+          socketRef.current.io.on('reconnect', () => {
+            console.log('reconnecting...');
           });
 
           socketRef.current.on("total-users", (totalUsers: number) => {
@@ -280,7 +292,7 @@ const Room: FC = () => {
 
     peer.on("error", (error) => {
       console.log("peer error: ", error);
-      handlePeerLeave(callerID, true);
+      handlePeerLeave(callerID);
     });
 
     return peer;
@@ -327,7 +339,7 @@ const Room: FC = () => {
 
     peer.on("error", (error) => {
       console.log("peer error: ", error);
-      handlePeerLeave(callerID, true);
+      handlePeerLeave(callerID);
     });
 
     peer.signal(incomingSignal);
@@ -335,13 +347,12 @@ const Room: FC = () => {
     return peer;
   };
 
-  const handlePeerLeave = (id: string, peerDisconnect: boolean = false) => {
+  const handlePeerLeave = (id: string) => {
     if (peersRef.current.map(({ id }) => id).includes(id)) {
       setTotalUsers((prev) => prev - 1);
       peersRef.current = peersRef.current.filter(
         ({ id: userId }) => userId !== id
       );
-      peerDisconnect && socketRef.current?.emit("disconnect-socket", id);
 
       if (recievingRef.current && senderRef.current === id) {
         recievingRef.current = false;
@@ -358,7 +369,8 @@ const Room: FC = () => {
           timeout: 7500,
         });
       }
-      if (Object.values(sendingRef.current).filter((v) => v).length === 1) {
+      if (Object.values(sendingRef.current).filter((v) => v).length === 1 &&
+        Object.keys(sendingRef.current)[0] === id) {
         setSending(false);
         sendingRef.current = {};
 
