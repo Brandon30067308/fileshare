@@ -59,19 +59,18 @@ const FileDetails: FC<FileDetailsProps> = ({
           disabled={downloadUrl ? false : true}
         >
           <a
-            href={downloadUrl ?? ''}
+            href={downloadUrl ?? ""}
             download={name}
             onClick={() => {
               setOpen(false);
             }}
             className="flex w-full h-full align-center justify-center"
           >
-            {downloadUrl ?
-              'Download File' :
-              <Spinner
-                full={false}
-                lg={false}
-              />}
+            {downloadUrl ? (
+              "Download File"
+            ) : (
+              <Spinner full={false} lg={false} />
+            )}
             <FontAwesomeIcon icon={faDownload} className="ml-0-75" />
           </a>
         </button>

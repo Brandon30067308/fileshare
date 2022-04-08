@@ -74,7 +74,7 @@ const Main: FC = () => {
               console.log("Room ID does not exist!");
               addMessage({
                 type: "error",
-                message: 'Room ID does not exist!',
+                message: "Room ID does not exist!",
                 timeout: 10000,
               });
             } else {
@@ -184,7 +184,9 @@ const Main: FC = () => {
             >
               <div
                 className={`message w-fit bg-secondary flex align-center justify-space-between
-                ${type === 'error' ? 'text-error' : 'text-muted'} text-md px-1 py-0-75`}
+                ${
+                  type === "error" ? "text-error" : "text-muted"
+                } text-md px-1 py-0-75`}
               >
                 {message}
                 <button
