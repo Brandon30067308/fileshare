@@ -38,7 +38,7 @@ const Room: FC = () => {
   const inputRef = useRef<null | HTMLInputElement>(null);
   const sendingRef = useRef<{ [key: string]: boolean }>({});
   const recievingRef = useRef(false);
-  const senderRef = useRef<string | null>(null);
+  const senderRef = useRef<{ ref: string; isRecieving: boolean } | null>(null);
   const socketIdRef = useRef<string>();
   const recievingMessageRef = useRef("");
   const { messages, addMessage, removeMessage } = useMessages();
@@ -209,7 +209,10 @@ const Room: FC = () => {
   // handle peer recieving data
   const handleRecieveData = (data: any) => {
     if (data.toString().includes("sendingFile")) {
-      senderRef.current = JSON.parse(data).sendingFile;
+      senderRef.current = {
+        ref: JSON.parse(data).sendingFile,
+        isRecieving: true,
+      };
 
       recievingRef.current = true;
       // recieving file message
@@ -226,8 +229,14 @@ const Room: FC = () => {
       });
     } else if (data.toString().includes("sharingFile")) {
       recievingRef.current = true;
+      senderRef.current = {
+        ref: JSON.parse(data).sharingFile,
+        isRecieving: false,
+      };
     } else if (data.toString().includes("doneSharing")) {
-      recievingRef.current = senderRef.current ? recievingRef.current : false;
+      recievingRef.current = senderRef.current?.isRecieving
+        ? recievingRef.current
+        : false;
     } else {
       if (data.toString().includes("done")) {
         // file ready for download
@@ -235,7 +244,7 @@ const Room: FC = () => {
         removeMessage(recievingMessageRef.current);
         recievingRef.current = false;
 
-        socketRef.current?.emit("file-recieved", senderRef.current);
+        socketRef.current?.emit("file-recieved", senderRef.current?.ref);
 
         const parsed = JSON.parse(data);
         fileNameRef.current = parsed.fileName;
@@ -380,7 +389,11 @@ const Room: FC = () => {
         ({ id: userId }) => userId !== id
       );
 
-      if (recievingRef.current && senderRef.current === id) {
+      if (
+        recievingRef.current &&
+        senderRef.current?.ref === id &&
+        senderRef.current?.isRecieving
+      ) {
         recievingRef.current = false;
         removeMessage(recievingMessageRef.current);
 
@@ -536,7 +549,7 @@ const Room: FC = () => {
                   </span>
                 </div>
                 <button
-                  className="flex align-center justify-center align-center bg-mutedAlt px-1 py-1-5
+                  className="flex align-center justify-center align-center bg-mutedAlt
                     text-dark text-md"
                   style={{
                     backgroundColor: sending ? "#dededee6" : "#dedede",
@@ -550,10 +563,12 @@ const Room: FC = () => {
                     converting ? (
                       "..."
                     ) : (
-                      <span className="w-full flex align-center justify-center text-muted text-md">
-                        <span className="mr-0-5">sending</span>
+                      <>
+                        <span className="mr-0-5 text-muted text-md">
+                          sending
+                        </span>
                         <Spinner full={false} />
-                      </span>
+                      </>
                     )
                   ) : (
                     <>

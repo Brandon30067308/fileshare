@@ -1,4 +1,4 @@
-import { FC, useState, useRef } from "react";
+import { FC, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRightToBracket,
@@ -151,8 +151,7 @@ const Main: FC = () => {
           />
           <button
             type="submit"
-            className="bg-mutedAlt text-md text-dark flex align-center justify-center
-              p-1-5"
+            className="bg-mutedAlt text-md text-dark flex align-center justify-center"
             style={{
               backgroundColor: loading ? "#dededee6" : "#dedede",
               width: "165px",
