@@ -12,6 +12,16 @@ button {
   width: fit-content;
   transition: 0.25s ease;
 
+  &.download-file {
+    width: 178px;
+    height: 64px;
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+  }
+
   &:disabled {
     pointer-events: none;
   }
@@ -27,20 +37,7 @@ button {
   background-repeat: repeat;
   background-position: center;
   overflow-x: hidden;
-  min-height: 100vh;
-
-  .Spinner {
-    animation: spin 0.85s linear infinite;
-
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
-      }
-    }
-  }
+  min-height: calc(var(--vh, 1vh) * 100);
 
   button.copy,
   button.close {

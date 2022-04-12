@@ -2,10 +2,10 @@ import { FC, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import Modal from "react-modal";
 import { io, Socket } from "socket.io-client";
 import Peer, { SignalData } from "simple-peer";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
-import streamSaver from "streamsaver";
 import FileDetails from "./FileDetails";
 import Spinner from "../shared/Spinner";
 import RoomHeader from "./RoomHeader";
@@ -28,6 +28,9 @@ const Room: FC = () => {
   const [connected, setConnected] = useState<boolean>(false);
   const [sending, setSending] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [downloadUrl, setdownloadUrl] = useState<null | string>(null);
   // refs
   const socketRef = useRef<Socket<DefaultEventsMap, DefaultEventsMap>>();
   const peersRef = useRef<{ peer: Peer.Instance; id: string }[]>([]);
@@ -35,7 +38,8 @@ const Room: FC = () => {
   const inputRef = useRef<null | HTMLInputElement>(null);
   const sendingRef = useRef<{ [key: string]: boolean }>({});
   const recievingRef = useRef(false);
-  const senderRef = useRef<string | null>(null);
+  const senderRef = useRef<{ ref: string; isRecieving: boolean } | null>(null);
+  const socketIdRef = useRef<string>();
   const recievingMessageRef = useRef("");
   const { messages, addMessage, removeMessage } = useMessages();
   const navigate = useNavigate();
@@ -71,22 +75,19 @@ const Room: FC = () => {
             reconnection: true,
             reconnectionAttempts: 5,
           });
+
           socketRef.current.on("connect", () => {
             socketRef.current?.emit("join-room", { roomID });
+            socketIdRef.current = socketRef.current?.id;
           });
 
           socketRef.current.on("disconnect", () => {
-            peersRef.current = [];
-            navigate("/");
+            cleanUp();
+            console.log("disconnected...");
           });
 
-          socketRef.current.io.on('reconnect_failed', () => {
-            console.log('reconnect failed...');
-            socketRef.current?.disconnect();
-          });
-
-          socketRef.current.io.on('reconnect', () => {
-            console.log('reconnecting...');
+          socketRef.current.on("user-reconnected", (userId) => {
+            userId !== socketRef.current && handlePeerLeave(userId);
           });
 
           socketRef.current.on("total-users", (totalUsers: number) => {
@@ -122,7 +123,7 @@ const Room: FC = () => {
           });
 
           socketRef.current.on("file-recieved", (userId) => {
-            if (socketRef.current) sendingRef.current[userId] = false;
+            sendingRef.current[userId] = false;
             if (Object.values(sendingRef.current).every((v) => !v)) {
               // done sending to all users
               peersRef.current.forEach(({ peer }) =>
@@ -135,15 +136,31 @@ const Room: FC = () => {
             addMessage({
               type: "message",
               message: (
-                <p className="text-md text-success">
-                  User{" "}
-                  {peersRef.current.findIndex(({ id }) => id === userId) + 1}{" "}
-                  recieved file
-                </p>
+                <p className="text-md text-success">User recieved file...</p>
               ),
               persist: true,
               timeout: 10000,
             });
+          });
+
+          socketRef.current.io.on("reconnect", () => {
+            console.log("reconnected...");
+            setReconnecting(false);
+          });
+
+          socketRef.current.io.on("reconnect_failed", () => {
+            console.log("reconnect failed...");
+            navigate("/");
+          });
+
+          socketRef.current.io.on("reconnect_attempt", () => {
+            console.log("reconnecting...");
+            setReconnecting(true);
+            socketRef.current?.emit(
+              "reconnecting",
+              roomID,
+              socketIdRef.current
+            );
           });
         } else {
           // full room or invalid roomID
@@ -167,11 +184,23 @@ const Room: FC = () => {
       });
 
     return () => {
+      socketRef.current?.disconnect();
       // clean up
-      peersRef.current = [];
-      socketRef?.current?.disconnect();
+      cleanUp();
     };
   }, []);
+
+  const cleanUp = () => {
+    setConnected(false);
+    setSending(false);
+
+    peersRef.current.forEach(({ peer }) => peer.destroy());
+    peersRef.current = [];
+    sendingRef.current = {};
+    recievingRef.current = false;
+    senderRef.current = null;
+    removeMessage(recievingMessageRef.current);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.files && setFile(e.target.files[0]);
@@ -180,8 +209,12 @@ const Room: FC = () => {
   // handle peer recieving data
   const handleRecieveData = (data: any) => {
     if (data.toString().includes("sendingFile")) {
-      senderRef.current = JSON.parse(data).sendingFile;
+      senderRef.current = {
+        ref: JSON.parse(data).sendingFile,
+        isRecieving: true,
+      };
 
+      recievingRef.current = true;
       // recieving file message
       recievingMessageRef.current = addMessage({
         type: "message",
@@ -194,11 +227,16 @@ const Room: FC = () => {
         persist: true,
         allowRemove: false,
       });
-      recievingRef.current = true;
     } else if (data.toString().includes("sharingFile")) {
       recievingRef.current = true;
+      senderRef.current = {
+        ref: JSON.parse(data).sharingFile,
+        isRecieving: false,
+      };
     } else if (data.toString().includes("doneSharing")) {
-      recievingRef.current = false;
+      recievingRef.current = senderRef.current?.isRecieving
+        ? recievingRef.current
+        : false;
     } else {
       if (data.toString().includes("done")) {
         // file ready for download
@@ -206,7 +244,7 @@ const Room: FC = () => {
         removeMessage(recievingMessageRef.current);
         recievingRef.current = false;
 
-        socketRef.current?.emit("file-recieved", senderRef.current);
+        socketRef.current?.emit("file-recieved", senderRef.current?.ref);
 
         const parsed = JSON.parse(data);
         fileNameRef.current = parsed.fileName;
@@ -229,25 +267,21 @@ const Room: FC = () => {
           persist: true,
           timeout: 10000,
         });
+
+        setdownloadUrl(null);
+        arrayBufferWorker.postMessage("download"); // send back generated buffer from worker
+        arrayBufferWorker.addEventListener(
+          "message",
+          (e) => {
+            const url = URL.createObjectURL(e.data);
+            setdownloadUrl(url);
+          },
+          { once: true }
+        );
       } else {
         arrayBufferWorker.postMessage(data); // send chunks to worker to convert to array buffer
       }
     }
-  };
-
-  // handle file download
-  const handleDownload = () => {
-    arrayBufferWorker.postMessage("download"); // send back generated buffer from worker
-    arrayBufferWorker.addEventListener(
-      "message",
-      (e) => {
-        // download file
-        const stream = e.data.stream();
-        const fileStream = streamSaver.createWriteStream(fileNameRef.current);
-        stream.pipeTo(fileStream);
-      },
-      { once: true }
-    );
   };
 
   // create peer
@@ -350,11 +384,16 @@ const Room: FC = () => {
   const handlePeerLeave = (id: string) => {
     if (peersRef.current.map(({ id }) => id).includes(id)) {
       setTotalUsers((prev) => prev - 1);
+      peersRef.current.find(({ id: userId }) => id === userId)?.peer.destroy();
       peersRef.current = peersRef.current.filter(
         ({ id: userId }) => userId !== id
       );
 
-      if (recievingRef.current && senderRef.current === id) {
+      if (
+        recievingRef.current &&
+        senderRef.current?.ref === id &&
+        senderRef.current?.isRecieving
+      ) {
         recievingRef.current = false;
         removeMessage(recievingMessageRef.current);
 
@@ -369,8 +408,10 @@ const Room: FC = () => {
           timeout: 7500,
         });
       }
-      if (Object.values(sendingRef.current).filter((v) => v).length === 1 &&
-        Object.keys(sendingRef.current)[0] === id) {
+      if (
+        Object.values(sendingRef.current).filter((v) => v).length === 1 &&
+        Object.entries(sendingRef.current).find((e) => e[1])?.[0] === id
+      ) {
         setSending(false);
         sendingRef.current = {};
 
@@ -385,7 +426,11 @@ const Room: FC = () => {
           timeout: 7500,
         });
       }
-      if (sendingRef.current[id]) sendingRef.current[id] = false;
+      sendingRef.current[id] = false;
+      if (peersRef.current.length === 0) {
+        setConnected(false);
+        recievingRef.current = false;
+      }
     }
   };
 
@@ -395,11 +440,13 @@ const Room: FC = () => {
       if (file) {
         setSending(true);
 
+        setConverting(true);
         // blob -> blob chunks
         blobChunkWorker.postMessage(file);
         blobChunkWorker.addEventListener(
           "message",
           async (e: MessageEvent) => {
+            setConverting(false);
             // blob chunks
             const fileChunks = e.data;
 
@@ -495,27 +542,34 @@ const Room: FC = () => {
                     {file
                       ? file.name.length > 17
                         ? `${file.name.slice(0, 15)}...${file.name.slice(
-                          file.name.lastIndexOf(".")
-                        )}`
+                            file.name.lastIndexOf(".")
+                          )}`
                         : file.name
                       : "Click to select a file 📂"}
                   </span>
                 </div>
                 <button
-                  className="flex align-center bg-mutedAlt px-1 py-1-5 text-dark text-md"
+                  className="flex align-center justify-center align-center bg-mutedAlt
+                    text-dark text-md"
                   style={{
                     backgroundColor: sending ? "#dededee6" : "#dedede",
                     height: "63px",
-                    width: "158px",
+                    width: "160px",
                   }}
                   onClick={sendFile}
                   disabled={sending}
                 >
                   {sending ? (
-                    <span className="w-full flex align-center justify-center text-muted text-md">
-                      <span className="mr-0-5">sending</span>
-                      <Spinner full={false} />
-                    </span>
+                    converting ? (
+                      "..."
+                    ) : (
+                      <>
+                        <span className="mr-0-5 text-muted text-md">
+                          sending
+                        </span>
+                        <Spinner full={false} />
+                      </>
+                    )
                   ) : (
                     <>
                       Share file
@@ -550,8 +604,9 @@ const Room: FC = () => {
               >
                 <div
                   className={`message w-fit bg-secondary flex align-center justify-space-between
-                  ${type === "error" ? "text-error" : "text-muted"
-                    } text-md px-1 py-0-75`}
+                  ${
+                    type === "error" ? "text-error" : "text-muted"
+                  } text-md px-1 py-0-75`}
                 >
                   {message}
                   {allowRemove && (
@@ -570,7 +625,7 @@ const Room: FC = () => {
           })}
           {recievedFile && <FileDownload setDownloadModal={setModalOpen} />}
           <FileDetails
-            handleDownload={handleDownload}
+            downloadUrl={downloadUrl}
             name={fileNameRef.current}
             size={fileSize}
             open={modalOpen}
@@ -582,6 +637,19 @@ const Room: FC = () => {
         <div className="h-full w-full flex align-center justify-center">
           {error && <p className="text-md text-white">{error}</p>}
           {loading && <Spinner fill="#ffffff" lg={true} />}
+          {reconnecting && (
+            <Modal
+              className="reconnecting text-md text-white"
+              shouldCloseOnOverlayClick={false}
+              isOpen={reconnecting}
+              ariaHideApp={false}
+            >
+              <span className="text-md text-white flex align-center justify-center">
+                <span className="mr-0-5">Reconnecting</span>
+                <Spinner full={false} fill="#ffffff" />
+              </span>
+            </Modal>
+          )}
         </div>
       }
     </>

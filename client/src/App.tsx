@@ -1,8 +1,8 @@
-import "./App.scss";
 import Main from "./components/Main/Main";
 import { Routes, Route, BrowserRouter as Router } from "react-router-dom";
 import Room from "./components/Room/Room";
 import NotFound from "./components/NotFound/NotFound";
+import "./App.scss";
 
 function App() {
   return (

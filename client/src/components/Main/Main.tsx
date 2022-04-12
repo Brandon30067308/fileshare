@@ -1,4 +1,4 @@
-import { FC, useState, useRef } from "react";
+import { FC, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRightToBracket,
@@ -74,7 +74,7 @@ const Main: FC = () => {
               console.log("Room ID does not exist!");
               addMessage({
                 type: "error",
-                message: 'Room ID does not exist!',
+                message: "Room ID does not exist!",
                 timeout: 10000,
               });
             } else {
@@ -151,8 +151,7 @@ const Main: FC = () => {
           />
           <button
             type="submit"
-            className="bg-mutedAlt text-md text-dark flex align-center justify-center
-              p-1-5"
+            className="bg-mutedAlt text-md text-dark flex align-center justify-center"
             style={{
               backgroundColor: loading ? "#dededee6" : "#dedede",
               width: "165px",
@@ -184,7 +183,9 @@ const Main: FC = () => {
             >
               <div
                 className={`message w-fit bg-secondary flex align-center justify-space-between
-                ${type === 'error' ? 'text-error' : 'text-muted'} text-md px-1 py-0-75`}
+                ${
+                  type === "error" ? "text-error" : "text-muted"
+                } text-md px-1 py-0-75`}
               >
                 {message}
                 <button

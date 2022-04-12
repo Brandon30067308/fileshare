@@ -29,7 +29,7 @@ app.use((_, res) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("connection established...");
+  console.log("connection established");
   socket.on("join-room", ({ roomID }) => {
     // join room
     socket.join(roomID);
@@ -68,9 +68,15 @@ io.on("connection", (socket) => {
     console.log("connect error: ", err.message);
   });
 
-  socket.on("disconnect-socket", (socketId) => {
-    const socket = sockets.find(({ id }) => id === socketId);
-    socket && socket.disconnect();
+  socket.on("reconnecting", (roomID, socketId) => {
+    const socketRoom = rooms[roomID];
+    if (socketRoom.includes(socketId)) {
+      rooms[roomID] = socketRoom.filter((id) => id !== socketId);
+      io.to(socketRoom.filter(({ id }) => id !== socket.id)).emit(
+        "user-reconnected",
+        socketId
+      );
+    }
   });
 
   socket.on("disconnect", () => {
@@ -78,10 +84,11 @@ io.on("connection", (socket) => {
     sockets.filter(({ id }) => id !== socket.id);
 
     const roomID = socketToRoom[socket.id];
-    let socketRoom = rooms[roomID];
+    const socketRoom = rooms[roomID];
     if (socketRoom) {
       rooms[roomID] = socketRoom.filter((id) => id !== socket.id);
       io.in(roomID).emit("user-left", socket.id);
+      io.in(roomID).emit("total-users", rooms[roomID].length);
     }
   });
 });
